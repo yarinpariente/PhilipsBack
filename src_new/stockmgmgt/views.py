@@ -98,7 +98,7 @@ def CategoriesView(request):
           ser = CategorySerializer(data=request.data) 
           if ser.is_valid():
               ser.save()
-              return JsonResponse('saved', safe=False, status=201)
+              return JsonResponse(ser.data, safe=False, status=201)
           return JsonResponse(ser.errors, status=400)
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500) 
@@ -137,7 +137,7 @@ def LocationsView(request):
             ser = LocationSerializer(data=request.data)
             if ser.is_valid():
                 ser.save()
-                return JsonResponse({'message': 'Locations created successfully'}, status=201)
+                return JsonResponse(ser.data,safe=False, status=201)
             else:
                 return JsonResponse(ser.errors, status=400)
     except Exception as e:
@@ -177,7 +177,7 @@ def UsersView(request):
           ser = UserSerializer(data=request.data)
           if ser.is_valid():
               ser.save()
-              return JsonResponse('saved', safe=False, status=201)
+              return JsonResponse(ser.data, safe=False, status=201)
           return JsonResponse(ser.errors, status=400)
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500)
@@ -216,7 +216,7 @@ def SuppliersView(request):
             ser = SupplierSerializer(data=request.data)
             if ser.is_valid():
                 ser.save()
-                return JsonResponse({'message': 'Supplier created successfully'}, status=201)
+                return JsonResponse(ser.data, safe=False, status=201)
             else:
                 return JsonResponse(ser.errors, status=400)
     except Exception as e:
@@ -275,7 +275,7 @@ def HistoriesView(request):
           ser = HistorySerializer(data=request.data , many=True , context={'safe': False})
           if ser.is_valid():
               ser.save()
-              return JsonResponse('saved', safe=False, status=201)
+              return JsonResponse(ser.data, safe=False, status=201)
           return JsonResponse(ser.errors, status=400)
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500)
@@ -314,7 +314,7 @@ def MachinesViews(request):
           ser = MachineSerializer(data=request.data)
           if ser.is_valid():
               ser.save()
-              return JsonResponse('saved', safe=False, status=201)
+              return JsonResponse(ser.data, safe=False, status=201)
           return JsonResponse(ser.errors, status=400)
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500)
@@ -339,4 +339,5 @@ def MachineView(request,id):
            machine.delete()
            return JsonResponse(f'the resource with id {id} deleted',safe=False, status=200) 
     except Exception as e:
-        return JsonResponse(f'{e}', safe=False, status=500)    
+        return JsonResponse(f'{e}', safe=False, status=500)
+    
