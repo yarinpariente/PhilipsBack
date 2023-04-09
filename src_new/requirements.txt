@@ -1,0 +1,14 @@
+django
+django-binary-database-files
+django-cors-headers
+djangorestframework
+idna
+logo
+pbr
+pipenv
+python-barcode
+pytz
+requests
+shell
+sqlparse
+stevedore
