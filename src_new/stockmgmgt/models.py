@@ -1,31 +1,27 @@
 from django.db import models
 import uuid
 from django.contrib.auth.models import AbstractUser
-# import barcode
-# from barcode.writer import ImageWriter
-# from io import BytesIO
-# from django.core.files import File
 from django.forms import ValidationError
+from django.core.validators import RegexValidator
+
+
+# id_number , username , email , worker_number
+
 
 # Create your models here.
 class User(AbstractUser):
-    units = (
-        ("Clean Room ","C.R"),
-        ("Final Test ","F.T"),
-    )
-    name = models.CharField(max_length=50, null=False , unique=True)
-    lastname = models.CharField(max_length=50, null=False)
-    email=models.EmailField(unique=True, null=False)
-    phone = models.CharField(unique=True , max_length=10 , null=False )
     id_number = models.CharField(primary_key=True , max_length=50, null=False)
-    job = models.CharField(max_length=50, null=False)
-    unit = models.CharField(max_length=50, choices = units, null=False)
+    username = models.CharField(max_length=15, null=False , unique=True)
+    password = models.CharField(max_length=10, null=False )
+    name = models.CharField(max_length=50, null=False)
+    lastname = models.CharField(max_length=50, null=False)
+    email = models.EmailField(unique=True, null=False)
+    phone = models.CharField(max_length=15 , null=False )
+    job = models.CharField(max_length=15, null=False)
+    unit = models.CharField(max_length=15,null=False)
     worker_number = models.CharField(unique=True, max_length=50, null=False)
-    permission = models.IntegerField(default=0) #0 worker, #1 admin
-    #USERNAME_FIELD='email'
-    #REQUIRED_FIELDS=['username']
-        
-    
+    is_superuser = models.BooleanField(default=False)
+
     def __str__(self):
         return f'Name : {self.name}'
 #
@@ -64,50 +60,46 @@ class Room(models.Model):
     
     def __str__(self):
         return f'Name : {self.name}'
-    
+
 #   
 class Location(models.Model):
     location_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
     name = models.CharField(default = "" , max_length=100, null=False , unique=True )
-    max_column = models.IntegerField(null=False)
+    max_column = models.CharField(max_length=1,null=False)
     max_row =  models.IntegerField(null=False)
     
     def __str__(self):
         return f'Type : {self.name}, Column: {self.max_column}, Row: {self.max_row}'
     
+class Coin(models.Model):
+    coin_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
+    name = models.CharField(default = "" , max_length=100, null=False , unique=True )
+    
+    def __str__(self):
+        return f'Type : {self.name}'
 #
-class Item(models.Model):	
-    name = models.CharField(max_length=50, null=False)
-    category = models.ForeignKey(Category,on_delete=models.SET_NULL,null = True)
-    machine = models.ForeignKey(Machine,on_delete=models.SET_NULL,null = True)
-    kit_number =  models.CharField(max_length=50, null=False)
-    serial_number = models.CharField(primary_key=True, max_length=100, null=False) #uniqe
-    description = models.TextField(max_length=150, null=False)
-    quantity = models.IntegerField(default='0', null=False)
-    limit = models.IntegerField(default='0', null=False)
-    supplier = models.ForeignKey(Supplier,on_delete=models.SET_NULL,null=True)
-    price = models.FloatField(default='0',null = False)
-    creation_date = models.DateTimeField(auto_now_add=True) #  Update
-    image = models.CharField(max_length=1000000, null = True)
-    room = models.ForeignKey(Location,on_delete=models.SET_NULL, null=True)
-    #column = models.CharField(default = 'A',null=False , max_length=1)    from A to Z 
-    column = models.IntegerField(default = '0',null=False)
-    row =  models.IntegerField(default = '0',null=False) 
-    room_description = models.CharField(max_length=100, null=False)
-    #pn_philips = models.CharField(max_length=15, null=True)
-    #pn_manufacturer = models.CharField(max_length=15, null=True)
-    
-    #barcode = models.ImageField(upload_to='barcodes/', blank=True)
 
-    
-    # def save(self, *args, **kwargs):
-    #     EAN = barcode.get_barcode_class('ean13')
-    #     ean = EAN(f'{self.pn_philips}', writer=ImageWriter())
-    #     buffer = BytesIO()
-    #     ean.write(buffer)
-    #     self.barcode.save(f'{self.name}.png', File(buffer), save=False)
-    #     return super().save(*args, **kwargs)
-    
+
+class Item(models.Model):	
+    name = models.CharField(max_length=50, null=False) # name of the item 
+    category = models.ForeignKey(Category,on_delete=models.SET_NULL,null = True) # which categoty item belong  
+    machine = models.ForeignKey(Machine,on_delete=models.SET_NULL,null = True) # which machine item belong
+    kit_number =  models.CharField(max_length=50, null=True ,blank=True) # if item blong to kit of items
+    serial_number = models.CharField(max_length=100 , null=True ,blank=True) # if item part of other items
+    description = models.TextField(max_length=150, null=True,blank=True) # Item Description can be null
+    quantity = models.IntegerField(default=0, null=False)   # Item Quantity
+    last_quantity = models.IntegerField(default=-5, null=True,blank=True)    # Last Item Quantity for sends email update
+    limit = models.IntegerField(default=0, null=True)   # Item Limit to send email to the manager 
+    supplier = models.ForeignKey(Supplier,on_delete=models.SET_NULL,null=True)  # which Supplier give us the item 
+    price = models.FloatField(default='0',null = False) # How much the item cost 
+    creation_date = models.DateTimeField(auto_now_add=True) #  When create the item
+    image = models.CharField(max_length=1000000, null = True,blank=True)    # Item Photo
+    room = models.ForeignKey(Location,on_delete=models.SET_NULL, null=True) # which Room item belong
+    column = models.CharField(max_length=1,null=False) # which column is locate in room 
+    row =  models.IntegerField(null=False) # which row is locate in room 
+    room_description = models.CharField(max_length=100, null=False) #  Item Description in location with box 
+    pn_philips = models.CharField(primary_key=True,unique=True,max_length=15, null=False) # P/N philips to generate philips barcode
+    pn_manufacturer = models.CharField(max_length=15, null=True,blank=True) # P/N manufacturer to generate philips barcode
     
     def __str__(self):
         return f' Name : {self.name} , Kit Number {self.kit_number}'

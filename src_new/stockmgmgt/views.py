@@ -1,5 +1,14 @@
 import json
+from functools import reduce
+from django.db.models import F
+from math import ceil
+import threading
+from rest_framework.decorators import api_view
+from rest_framework.pagination import PageNumberPagination
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render , redirect, HttpResponse
+from django.core.mail import send_mail
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.urls import reverse
@@ -8,6 +17,13 @@ from .serializers import ItemSerializer,ItemPostSerializer , CategorySerializer 
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
+
+def send_email_async(subject, message, from_email, recipient_list):
+    """
+    Helper function to send email asynchronously using threading.
+    """
+    threading.Thread(target=send_mail, args=(subject, message, from_email, recipient_list)).start()
+    
 
 @api_view(['GET','POST'])
 def ItemsView(request):
@@ -53,7 +69,7 @@ def ItemView(request, id):
 
         if request.method == 'GET':
             serializer = ItemSerializer(item)
-            return JsonResponse(serializer.data, status=200)
+            return JsonResponse(serializer.data,status=200,safe=False)
 
         elif request.method == 'PUT':
             if 'category' in request.data:
@@ -76,6 +92,16 @@ def ItemView(request, id):
             ser = ItemPostSerializer(instance = item , data=request.data , partial = True)
             if ser.is_valid():
                 item_created = ItemSerializer(ser.save())
+                # Sending email to manager 
+                if( item_created.data['quantity'] != item.last_quantity) :
+                    item.last_quantity = item_created.data['quantity']
+                    item.save()
+                    if item_created.data['quantity'] <= item_created.data['limit']:
+                        subject = 'Item {} is under the Limit'.format(item_created.data['name'])
+                        message = 'The item "{}" Have {} in stock its under the limit {} . Please order.'.format(item_created.data['name'],item_created.data['quantity'],item_created.data['limit'])
+                        from_email = 'philipsmaintenance86@gmail.com'
+                        recipient_list = ['yarinpariente10@gmail.com']  # Update with your recipient list
+                        send_email_async(subject, message, from_email, recipient_list)
                 return JsonResponse(item_created.data, safe=False, status=201)
             return JsonResponse(ser.errors, status=400 , safe=False)
 
@@ -196,7 +222,7 @@ def UserView(request, id):
           ser = UserSerializer(instance = user , data=request.data , partial = True)
           if ser.is_valid():
               ser.save()
-              return JsonResponse(f'the resource with id {id} updated', safe=False, status=200)
+              return JsonResponse(ser.data, safe=False, status=200)
           return JsonResponse(ser.errors, status=400)
        if request.method == 'DELETE':
            user.delete()
@@ -304,7 +330,7 @@ def HistoryView(request,id):
 
 # Machine View
 @api_view(['GET','POST'])
-def MachinesViews(request):
+def MachinesViews(request): ## The function in get request if get , its return all items if post is crate new one
     try:
       if request.method == 'GET': # list all items
          machines = Machine.objects.all()
@@ -319,25 +345,206 @@ def MachinesViews(request):
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500)
        
-@api_view(['GET','PUT', 'DELETE'])
-def MachineView(request,id):
+@api_view(['GET', 'PUT', 'DELETE'])
+def MachineView(request, id):
     try:
-       try:
-        machine = Machine.objects.get(pk=id)
-       except Machine.DoesNotExist: 
-          return JsonResponse(f'the resource with id {id} does not exist', safe=False, status=404)
-       if request.method == 'GET': # get a specific item
-         ser = MachineSerializer(machine)
-         return JsonResponse(ser.data,safe=False, status=200)
-       if request.method == 'PUT':
-          ser = MachineSerializer(instance = machine , data=request.data , partial = True)
-          if ser.is_valid():
-              ser.save()
-              return JsonResponse(f'the resource with id {id} updated', safe=False, status=200)
-          return JsonResponse(ser.errors, status=400)
-       if request.method == 'DELETE':
-           machine.delete()
-           return JsonResponse(f'the resource with id {id} deleted',safe=False, status=200) 
+        # Check if the machine with the given id exists
+        try:
+            machine = Machine.objects.get(pk=id)
+        except Machine.DoesNotExist:
+            return JsonResponse(f'The resource with id {id} does not exist', safe=False, status=404)
+        
+        if request.method == 'GET':
+            # Get the machine with the given id
+            ser = MachineSerializer(machine)
+            return JsonResponse(ser.data, safe=False, status=200)
+        
+        elif request.method == 'PUT':
+            # Update the machine with the given id
+            ser = MachineSerializer(instance=machine, data=request.data, partial=True)
+            if ser.is_valid():
+                ser.save()
+                return JsonResponse(f'The resource with id {id} updated', safe=False, status=200)
+            return JsonResponse(ser.errors, status=400)
+        
+        elif request.method == 'DELETE':
+            # Delete the machine with the given id
+            machine.delete()
+            return JsonResponse(f'The resource with id {id} deleted', safe=False, status=200)
+        
     except Exception as e:
+        # Return an error response if an exception is raised
         return JsonResponse(f'{e}', safe=False, status=500)
+
+
+
+
+    
+@api_view(['GET'])
+def getItemByPnManufacturer(request, id):   ## return the item that have the same P/N Manufacturer
+    try:
+        item = Item.objects.filter(pn_manufacturer=id).first()
+        if item:
+            ser = ItemSerializer(item)
+            return JsonResponse(ser.data, status=200)
+        else:
+            return JsonResponse({'error': 'Item not found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getItemBySerialNumber(request, id): ## return all items that have the same Serial Number
+    try:
+        items = Item.objects.filter(serial_number=id)
+        if items.exists():
+            ser = ItemSerializer(items, many=True)
+            return JsonResponse(ser.data, status=200, safe=False)
+        else:
+            return JsonResponse({'error': 'Items not found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+    
+@api_view(['GET'])
+def getItemsByMachineId(request, id):   ## return all items that have the same Machine
+    try:
+        items = Item.objects.filter(machine = id)
+        if items.exists():
+            ser = ItemSerializer(items, many=True)
+            return JsonResponse(ser.data, status=200, safe=False)
+        else:
+            return JsonResponse({'error': 'Items not found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getItemsByCategoryId(request, id):  ## return all items that have the same Category
+    try:
+        items = Item.objects.filter(category = id)
+        if items.exists():
+            ser = ItemSerializer(items, many=True)
+            return JsonResponse(ser.data, status=200, safe=False)
+        else:
+            return JsonResponse({'error': 'Items not found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+
+@api_view(['GET'])
+def getItemsByLocationId(request, id):  ## return all items that have the same location
+    try:
+        items = Item.objects.filter(room = id)
+        if items.exists():
+            ser = ItemSerializer(items, many=True)
+            return JsonResponse(ser.data, status=200, safe=False)
+        else:
+            return JsonResponse({'error': 'Items not found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+
+
+@api_view(['GET'])
+def getMissItems(request):  ## Get all items Misses items in stock thah quantity <= limit
+    try:
+        items = Item.objects.filter(quantity__lte=F('limit'))
+        if items.exists():
+            ser = ItemSerializer(items, many=True)
+            return JsonResponse(ser.data, status=200, safe=False)
+        else:
+            return JsonResponse({'error': 'No low stock items found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getItemsByRoomDesc(request, id):    ## Get all items with the same sescription
+    try:
+        items = Item.objects.filter(room_description__iexact=id.lower())
+        if items.exists():
+            ser = ItemSerializer(items, many=True)
+            return JsonResponse(ser.data, status=200, safe=False)
+        else:
+            return JsonResponse({'error': 'Items not found.'}, status=404)
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getNumberOfItems(request):    ## Counter All Items
+    try:
+        count  = Item.objects.all().count()
+        return JsonResponse(count, safe=False, status=200)
+
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getNumberOfSuppliers(request):    ## Counter All Suppliers
+    try:
+        count  = Supplier.objects.all().count()
+        return JsonResponse(count, safe=False, status=200)
+
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getNumberOfLocations(request):    ## Counter All Locations
+    try:
+        count  = Location.objects.all().count()
+        return JsonResponse(count, safe=False, status=200)
+
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+@api_view(['GET'])
+def getNumberOfMachines(request):    ## Counter All Locations
+    try:
+        count  = Machine.objects.all().count()
+        return JsonResponse(count, safe=False, status=200)
+
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+
+@api_view(['GET']) 
+def getcalculatetotalprices(request):
+    try:
+        all_items = Item.objects.all()
+        total_price = reduce(lambda acc, item: acc + item.price * item.quantity, all_items, 0)
+        return JsonResponse(total_price, safe=False, status=200)
+
+    except Exception as e:
+        print(str(e))  # print the error message to help with debugging
+        return JsonResponse({'error': 'Internal server error.'}, safe=False, status=500)
+    
+    
+## Pagessss Items
+@api_view(['GET'])
+def getPagination(request, page):
+    items_per_page = 2 # set the number of items per page
+    paginator = Paginator(Item.objects.all(), per_page=items_per_page)
+    total_items = Item.objects.all().count()
+    total_pages = ceil(total_items / items_per_page)
+
+    try:
+        items = paginator.page(page)
+    except PageNotAnInteger:
+        items = paginator.page(1)
+    except EmptyPage:
+        items = paginator.page(paginator.num_pages)
+    serializer = ItemSerializer(items, many=True)
+    response_data = {
+        "total_items":total_items,
+        'total_pages': total_pages,
+        'items': serializer.data
+    }
+    return JsonResponse(response_data,safe=False, status=200)
+
     

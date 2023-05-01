@@ -28,6 +28,17 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 CORS_ORIGIN_ALLOW_ALL = True
 
+
+# Email settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'   # Must to be smpt
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'philipsmaintenance86@gmail.com'
+EMAIL_HOST_PASSWORD = 'aqrejquwvlkfcbqq'
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'philipsmaintenance86@gmail.com'
+SERVER_EMAIL = 'philipsmaintenance86@gmail.com'
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -38,7 +49,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'stockmgmgt.apps.StockmgmgtConfig',
-    'rest_framework'
+    'rest_framework',
+    'rest_framework.pagination',
 ]
 
 MIDDLEWARE = [
@@ -80,7 +92,7 @@ WSGI_APPLICATION = 'djangoproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'NewDb2.sqlite3',
+        'NAME': BASE_DIR / 'NewDb5.sqlite3',
     }
 }
 
