@@ -42,5 +42,7 @@ urlpatterns = [
     
     # Pages
     path('getpages/<str:page>/', getPagination),
+    # path('getphilipsnumber/>/', getPhilipsNumber),
+    
     
 ]

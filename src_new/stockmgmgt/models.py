@@ -1,5 +1,7 @@
 from django.db import models
 import uuid
+from django.db import transaction
+from datetime import datetime
 from django.contrib.auth.models import AbstractUser
 from django.forms import ValidationError
 from django.core.validators import RegexValidator
@@ -11,16 +13,18 @@ from django.core.validators import RegexValidator
 # Create your models here.
 class User(AbstractUser):
     id_number = models.CharField(primary_key=True , max_length=50, null=False)
-    username = models.CharField(max_length=15, null=False , unique=True)
-    password = models.CharField(max_length=10, null=False )
+    username = models.CharField(max_length=30, null=False , unique=True)
+    password = models.CharField(max_length=30, null=False )
     name = models.CharField(max_length=50, null=False)
     lastname = models.CharField(max_length=50, null=False)
     email = models.EmailField(unique=True, null=False)
     phone = models.CharField(max_length=15 , null=False )
-    job = models.CharField(max_length=15, null=False)
-    unit = models.CharField(max_length=15,null=False)
+    job = models.CharField(max_length=30, null=False)
+    unit = models.CharField(max_length=30,null=False)
     worker_number = models.CharField(unique=True, max_length=50, null=False)
     is_superuser = models.BooleanField(default=False)
+    
+    USERNAME_FIELD='username'
 
     def __str__(self):
         return f'Name : {self.name}'
@@ -49,10 +53,14 @@ class Machine(models.Model):
     machine_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
     name = models.CharField(unique=True,max_length=50, null=False)
     manufacturer = models.CharField(max_length=50, null=False)
-    machine_serial_number = models.CharField(unique=True, max_length=100, null=False)
+    machine_serial_number = models.CharField(unique=True, max_length=100, null=True , blank=True) # for example first machine start from 10000,next 11000
+    counter_item_machine = models.IntegerField(default=0, null=False)
     
+    
+        
     def __str__(self):
         return f'Name : {self.name}, manufacturer: {self.manufacturer}, machine_serial_number: {self.machine_serial_number}'
+    
     
 class Room(models.Model):
     room_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
@@ -101,24 +109,33 @@ class Item(models.Model):
     pn_philips = models.CharField(primary_key=True,unique=True,max_length=15, null=False) # P/N philips to generate philips barcode
     pn_manufacturer = models.CharField(max_length=15, null=True,blank=True) # P/N manufacturer to generate philips barcode
     
+    
+    def move_item(item, new_machine):
+        with transaction.atomic():
+            old_machine = item.machine
+            if old_machine != new_machine:
+                old_machine.counter_item_machine -= 1
+                old_machine.save()
+                new_machine.counter_item_machine += 1
+                new_machine.save()
+                item.machine = new_machine
+                item.save()
+    
+    def save(self, *args, **kwargs):
+        if not self.pn_philips:  # if this is a new item being added
+            self.machine.counter_item_machine += 1  # increment the counter
+            self.machine.save()  # save the machine object to update its counter in the database
+        super(Item, self).save(*args, **kwargs)
+    
     def __str__(self):
         return f' Name : {self.name} , Kit Number {self.kit_number}'
 
 #   
 class History(models.Model):
-    action_choices = (
-        ("POST","POST"),
-        ("PATCH","PATCH"),
-        ("PUT","PUT"),
-        ("DELETE","DELETE"),
-      )
-    resource_choices = (
-        ("Item","Item"),
-        ("Supplier","Supplier"),
-        ("Category","Category"),
-        ("Location","Location")
-    )
+
     resource = models.CharField(Item, null=True , max_length=20)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     date = models.DateTimeField(auto_now_add=True)
-    action = models.CharField(choices = action_choices , max_length=10, null = False)
+    action = models.CharField(max_length=20, null = False)
+    creation_date = models.DateTimeField(default=datetime.now)

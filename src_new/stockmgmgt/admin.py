@@ -11,4 +11,5 @@ admin.site.register(Category)
 admin.site.register(History)
 admin.site.register(Room)
 admin.site.register(Machine)
+
  
