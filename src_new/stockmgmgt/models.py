@@ -2,7 +2,7 @@ from django.db import models
 import uuid
 from django.db import transaction
 from datetime import datetime
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser , PermissionsMixin , BaseUserManager
 from django.forms import ValidationError
 from django.core.validators import RegexValidator
 
@@ -14,7 +14,7 @@ from django.core.validators import RegexValidator
 class User(AbstractUser):
     id_number = models.CharField(primary_key=True , max_length=50, null=False)
     username = models.CharField(max_length=30, null=False , unique=True)
-    password = models.CharField(max_length=30, null=False )
+    password = models.CharField(max_length=100, null=False )
     name = models.CharField(max_length=50, null=False)
     lastname = models.CharField(max_length=50, null=False)
     email = models.EmailField(unique=True, null=False)
@@ -23,11 +23,14 @@ class User(AbstractUser):
     unit = models.CharField(max_length=30,null=False)
     worker_number = models.CharField(unique=True, max_length=50, null=False)
     is_superuser = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=True , null=True)
+    access_token = models.CharField(max_length=500 , null = True , blank=True)
     
     USERNAME_FIELD='username'
+    
 
     def __str__(self):
-        return f'Name : {self.name}'
+        return f'Name: {self.name} {self.lastname}, Email: {self.email}, Job: {self.job} worker number : {self.worker_number}'
 #
 class Category(models.Model):
     category_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
@@ -42,7 +45,7 @@ class Supplier(models.Model):
     supplier_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
     name = models.CharField(max_length=50, null=True , unique=True )
     contact_name = models.CharField(default = "" ,max_length=20, null=False) 
-    contact_phone = models.CharField(max_length=10 , null=False )
+    contact_phone = models.CharField(max_length=15 , null=False )
     email = models.EmailField(unique=True ,null=False)
     address = models.CharField(default = "",max_length=50, null=False) 
     
@@ -54,9 +57,8 @@ class Machine(models.Model):
     name = models.CharField(unique=True,max_length=50, null=False)
     manufacturer = models.CharField(max_length=50, null=False)
     machine_serial_number = models.CharField(unique=True, max_length=100, null=True , blank=True) # for example first machine start from 10000,next 11000
-    counter_item_machine = models.IntegerField(default=0, null=False)
-    
-    
+    counter_item_machine = models.IntegerField(default=0, null=False) # How much item per machine
+    counter_item_for_pn = models.IntegerField(default=0, null=True) # generate the next pn that available
         
     def __str__(self):
         return f'Name : {self.name}, manufacturer: {self.manufacturer}, machine_serial_number: {self.machine_serial_number}'
@@ -89,7 +91,7 @@ class Coin(models.Model):
 
 
 class Item(models.Model):	
-    name = models.CharField(max_length=50, null=False) # name of the item 
+    name = models.CharField(max_length=150, null=False) # name of the item 
     category = models.ForeignKey(Category,on_delete=models.SET_NULL,null = True) # which categoty item belong  
     machine = models.ForeignKey(Machine,on_delete=models.SET_NULL,null = True) # which machine item belong
     kit_number =  models.CharField(max_length=50, null=True ,blank=True) # if item blong to kit of items
@@ -106,8 +108,8 @@ class Item(models.Model):
     column = models.CharField(max_length=1,null=False) # which column is locate in room 
     row =  models.IntegerField(null=False) # which row is locate in room 
     room_description = models.CharField(max_length=100, null=False) #  Item Description in location with box 
-    pn_philips = models.CharField(primary_key=True,unique=True,max_length=15, null=False) # P/N philips to generate philips barcode
-    pn_manufacturer = models.CharField(max_length=15, null=True,blank=True) # P/N manufacturer to generate philips barcode
+    pn_philips = models.CharField(primary_key=True,unique=True,max_length=100, null=False) # P/N philips to generate philips barcode
+    pn_manufacturer = models.CharField(max_length=100, null=True,blank=True) # P/N manufacturer to generate philips barcode
     
     
     def move_item(item, new_machine):
@@ -133,9 +135,12 @@ class Item(models.Model):
 #   
 class History(models.Model):
 
-    resource = models.CharField(Item, null=True , max_length=20)
+    description = models.CharField(max_length=100, null=True) #  Item Description in location with box 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
-    date = models.DateTimeField(auto_now_add=True)
     action = models.CharField(max_length=20, null = False)
     creation_date = models.DateTimeField(default=datetime.now)
+
+    
+    def __str__(self):
+        return f"{self.resource} - {self.user} - {self.action}"

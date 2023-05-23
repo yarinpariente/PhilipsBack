@@ -1,7 +1,13 @@
-from django.urls import path
 from django.contrib import admin
-from .views import ItemView,getPagination,getNumberOfSuppliers,getNumberOfLocations,getNumberOfMachines,getcalculatetotalprices,getNumberOfItems,getItemsByRoomDesc, ItemsView, CategoriesView, CategoryView , LocationsView , LocationView , UsersView,getMissItems , UserView , UpdateItemQuantity , SuppliersView , SupplierView , HistoryView , HistoriesView , MachinesViews , MachineView , getItemByPnManufacturer,getItemBySerialNumber,getItemsByMachineId , getItemsByCategoryId , getItemsByLocationId
-
+from .views import ItemView,TokenExpiresView,decode_token,logout_view,PasswordChangeView,login_user,create_user,getPagination,getNumberOfSuppliers,getNumberOfLocations,getNumberOfMachines,getcalculatetotalprices,getNumberOfItems,getItemsByRoomDesc, ItemsView, CategoriesView, CategoryView , LocationsView , LocationView , UsersView,getMissItems , UserView , UpdateItemQuantity , SuppliersView , SupplierView , HistoryView , HistoriesView , MachinesViews , MachineView , getItemByPnManufacturer,getItemBySerialNumber,getItemsByMachineId , getItemsByCategoryId , getItemsByLocationId
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+    TokenBlacklistView,
+)
+from django.urls import path, include, re_path
+from django.views.generic import TemplateView
 
 
 urlpatterns = [ 
@@ -45,4 +51,33 @@ urlpatterns = [
     # path('getphilipsnumber/>/', getPhilipsNumber),
     
     
+    # Login User
+    path('create_user', create_user),
+    path('login_user', login_user),
+    path('auth/' , include('djoser.urls')),
+    path('auth/' , include('djoser.urls.jwt')),
+    path('auth/', include('djoser.social.urls')),
+
+    
+    
+    # Tokens for login
+    path('api/token/', TokenObtainPairView.as_view()),  # Generate tokens 
+    path('api/token/refresh/', TokenRefreshView.as_view()), ## Generate Update token when access id expaired , return the refrash token
+    path('api/token/verify/', TokenVerifyView.as_view()),   ## check if token is ok
+    path('api/token/blacklist/', TokenBlacklistView.as_view()), 
+    path('api/token/expires/', TokenExpiresView.as_view()),
+    path('api/token/checkToken/',decode_token) ,
+
+
+
+    
+    # Change Password 
+    path('changepassword/', PasswordChangeView.as_view()),
+    path('logout/', logout_view) ,# When i login i get refrash token and access token 
+    
+
+
+    
 ]
+
+# urlpatterns += [re_path(r'^.*', TemplateView.as_view(template_name='index.html'))]

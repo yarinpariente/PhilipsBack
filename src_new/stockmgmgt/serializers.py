@@ -1,8 +1,11 @@
 from rest_framework import serializers
 from collections import OrderedDict
 from uuid import UUID
+from django.contrib.auth.forms import UserCreationForm
 import uuid
-from .models import Item , Category , Location , User , Supplier , History , Machine , Room
+from .models import Item , Category , Location  , Supplier , History , Machine , Room
+from stockmgmgt.models import User
+
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -57,5 +60,10 @@ class ItemPostSerializer(serializers.ModelSerializer):
         model = Item
         fields = '__all__'        
         
+class CustomUserCreationForm(UserCreationForm):
+    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
 
-  
+    class Meta:
+        model = User
+        fields = ['id_number', 'username', 'name', 'lastname', 'email', 'phone', 'job', 'unit', 'worker_number', 'is_superuser']
+        
