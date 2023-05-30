@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .views import ItemView,TokenExpiresView,decode_token,logout_view,PasswordChangeView,login_user,create_user,getPagination,getNumberOfSuppliers,getNumberOfLocations,getNumberOfMachines,getcalculatetotalprices,getNumberOfItems,getItemsByRoomDesc, ItemsView, CategoriesView, CategoryView , LocationsView , LocationView , UsersView,getMissItems , UserView , UpdateItemQuantity , SuppliersView , SupplierView , HistoryView , HistoriesView , MachinesViews , MachineView , getItemByPnManufacturer,getItemBySerialNumber,getItemsByMachineId , getItemsByCategoryId , getItemsByLocationId
+from .views import ItemView,getHistoryRecordsByDate,TokenExpiresView,getMonthCost,decode_token,logout_view,PasswordChangeView,login_user,create_user,getPagination,getNumberOfSuppliers,getNumberOfLocations,getNumberOfMachines,getcalculatetotalprices,getNumberOfItems,getItemsByRoomDesc, ItemsView, CategoriesView, CategoryView , LocationsView , LocationView , UsersView,getMissItems , UserView , UpdateItemQuantity , SuppliersView , SupplierView , HistoryView , HistoriesView , MachinesViews , MachineView , getItemByPnManufacturer,getItemBySerialNumber,getItemsByMachineId , getItemsByCategoryId , getItemsByLocationId
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -45,6 +45,8 @@ urlpatterns = [
     path('getnumberoflocations' ,getNumberOfLocations )  , # Calc Number of Items
     path('getnumberofmachines' ,getNumberOfMachines )  , # Calc Number of Items
     path('getallitemprice' ,getcalculatetotalprices ) ,  # get item by P.N Manufacturer
+    path('getmonthcost',getMonthCost) ,
+    path('gethistoryrecords' , getHistoryRecordsByDate),
     
     # Pages
     path('getpages/<str:page>/', getPagination),

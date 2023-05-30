@@ -5,6 +5,10 @@ from datetime import datetime
 from django.contrib.auth.models import AbstractUser , PermissionsMixin , BaseUserManager
 from django.forms import ValidationError
 from django.core.validators import RegexValidator
+from django.core.exceptions import ObjectDoesNotExist
+
+# from celery import Celery
+
 
 
 # id_number , username , email , worker_number
@@ -98,7 +102,7 @@ class Item(models.Model):
     serial_number = models.CharField(max_length=100 , null=True ,blank=True) # if item part of other items
     description = models.TextField(max_length=150, null=True,blank=True) # Item Description can be null
     quantity = models.IntegerField(default=0, null=False)   # Item Quantity
-    last_quantity = models.IntegerField(default=-5, null=True,blank=True)    # Last Item Quantity for sends email update
+    last_quantity = models.IntegerField(default=0, null=True,blank=True)    # Last Item Quantity for sends email update
     limit = models.IntegerField(default=0, null=True)   # Item Limit to send email to the manager 
     supplier = models.ForeignKey(Supplier,on_delete=models.SET_NULL,null=True)  # which Supplier give us the item 
     price = models.FloatField(default='0',null = False) # How much the item cost 
@@ -124,9 +128,19 @@ class Item(models.Model):
                 item.save()
     
     def save(self, *args, **kwargs):
+        try:
+            if self.pk is not None:  # Check if it's an existing item being updated
+                old_item = Item.objects.get(pk=self.pk)
+                if old_item.quantity != self.quantity:
+                    self.last_quantity = old_item.quantity
+        except ObjectDoesNotExist:
+            # Handle the case where the item doesn't exist
+            pass
+
         if not self.pn_philips:  # if this is a new item being added
             self.machine.counter_item_machine += 1  # increment the counter
             self.machine.save()  # save the machine object to update its counter in the database
+
         super(Item, self).save(*args, **kwargs)
     
     def __str__(self):
@@ -134,8 +148,7 @@ class Item(models.Model):
 
 #   
 class History(models.Model):
-
-    description = models.CharField(max_length=100, null=True) #  Item Description in location with box 
+    amount = models.CharField(max_length=100, null=True) #  Item quantity that change  
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     action = models.CharField(max_length=20, null = False)
@@ -143,4 +156,31 @@ class History(models.Model):
 
     
     def __str__(self):
-        return f"{self.resource} - {self.user} - {self.action}"
+        if self.item:
+            return f"{self.item.pn_philips} - {self.item.name} - {self.item.category.name} - {self.user.name} {self.user.lastname} - {self.action} - {self.amount}"
+        else:
+            return f"None - None - None - {self.user.username} - {self.action} - {self.amount}"
+    
+    
+class MonthlyCost(models.Model):
+    month = models.IntegerField(primary_key=True,unique=True, null=False)
+    year = models.IntegerField(default=datetime.now().year)  # Add year field
+    value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # @shared_task
+    def reset_monthly_revenues():
+        # Check if the reset date is today (January 1st)
+        if datetime.now().month == 1 and datetime.now().day == 1:
+            current_year = datetime.now().year
+            previous_year = current_year - 1
+
+            # Reset the MonthlyCost values for the previous year
+            MonthlyCost.objects.filter(year=previous_year).update(value=0)
+
+            # Create new MonthlyCost instances for the current year
+            for month in range(1, 13):
+                MonthlyCost.objects.update_or_create(month=month, year=current_year, defaults={'value': 0})
+
+
+    def __str__(self):
+        return f"{self.month} {self.year}: ${self.value}"

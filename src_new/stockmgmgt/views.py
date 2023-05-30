@@ -16,8 +16,8 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse , HttpResponseRedirect
 from django.urls import reverse
-from .models import Item , Category,User , Location  , Supplier , History , Machine , Room 
-from .serializers import ItemSerializer,CustomUserCreationForm,ItemPostSerializer , CategorySerializer , LocationSerializer , UserSerializer , SupplierSerializer , HistorySerializer , MachineSerializer , RoomSerializer
+from .models import Item , Category,User , Location  , Supplier , History , Machine , Room ,MonthlyCost
+from .serializers import ItemSerializer,CustomUserCreationForm,ItemPostSerializer , CategorySerializer,MonthlyCostSerializer , LocationSerializer , UserSerializer , SupplierSerializer , HistorySerializer , MachineSerializer , RoomSerializer
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -35,13 +35,9 @@ from django.utils.timezone import make_aware
 from django.utils import timezone
 from rest_framework.views import APIView
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework import status
 
-
-
-
-
-
-
+# from django.utils.dateformat import format_datetime
 
 
 
@@ -85,13 +81,47 @@ def ItemsView(request):
                 request.data['machine'] = machine.machine_id
                 # newp_n = machine.machine_serial_number + machine.counter_item_machine
                 # request.data['pn_philips'] = newp_n
+                
+            request.data['last_quantity'] = request.data['quantity']
             ser = ItemPostSerializer(data=request.data)
             if ser.is_valid():
-                item_created = ItemSerializer(ser.save())
-                machine.counter_item_machine += 1
-                machine.counter_item_for_pn += 1
-                machine.save()
-                return JsonResponse(item_created.data, safe=False, status=201)
+                try:
+                    item_created = ser.save()
+
+                    # Add history record
+                    itemToConnect = get_object_or_404(Item, pk=request.data['pn_philips'])
+
+                    history = History(
+                        amount=item_created.quantity,
+                        user=request.user,  # Assuming you have access to the authenticated user
+                        item=itemToConnect,
+                        action='Create',
+                        creation_date=datetime.now()
+                    )
+                    
+                    history.save()
+
+
+                    if 'machine' in request.data:
+                        machine.counter_item_machine += 1
+                        machine.counter_item_for_pn += 1
+                        machine.save()
+
+                    # Calculate the current month and year
+                    current_month = datetime.now().month
+                    current_year = datetime.now().year
+
+                    # Update the monthly revenue for the current month and year
+                    monthly_revenue = MonthlyCost.objects.get(month=current_month, year=current_year)
+                    quantity_price = item_created.quantity * item_created.price
+                    monthly_revenue.value = F('value') + quantity_price
+                    monthly_revenue.save()
+
+                    item_serializer = ItemSerializer(item_created)
+                    return JsonResponse(item_serializer.data, safe=False, status=201)
+                except Exception as e:
+                    print(f"Error occurred while creating item and adding history: {e}")
+                    return JsonResponse(f'{e}', safe=False, status=500)
             return JsonResponse(ser.errors, status=400 , safe=False)
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500)
@@ -108,7 +138,7 @@ def ItemView(request, id):
 
         if request.method == 'GET':
             serializer = ItemSerializer(item)
-            return JsonResponse(serializer.data,status=200,safe=False)
+            return JsonResponse(serializer.data,safe=False,status=200)
 
         elif request.method == 'PUT':
             if 'category' in request.data:
@@ -155,22 +185,53 @@ def ItemView(request, id):
                 supplier_email = item_created.data['supplier']['email']
                 # Sending email to manager 
                 if( item_created.data['quantity'] != item.last_quantity) :
+
+                    ### Add History Record Here
+                    itemToConnect = get_object_or_404(Item, pk=request.data['pn_philips'])
+
+                    # import pdb; pdb.set_trace()  
+                    # If We add to specific item quantity , and else if we take from stock 
+                    if(item_created.data['quantity'] > item.last_quantity):
+                        history = History(
+                            amount=item_created.data['quantity'] - item.last_quantity ,
+                            user=request.user,  # Assuming you have access to the authenticated user
+                            item=itemToConnect,
+                            action='Add',
+                            creation_date=datetime.now()
+                        )
+                        history.save()
+                    else :
+                        history = History(
+                            amount= abs(item.last_quantity - item_created.data['quantity']),
+                            user=request.user,  # Assuming you have access to the authenticated user
+                            item=itemToConnect,
+                            action='Sub',
+                            creation_date=datetime.now()
+                        )
+                        history.save()
+                    
+                    # Save the changes 
                     item.last_quantity = item_created.data['quantity']
                     item.save()
+                    
+                    ## We need to send email 
                     if item_created.data['quantity'] <= item_created.data['limit']:
                         subject = 'Item {} is under the Limit'.format(item_created.data['name'])
                         message = 'The item "{}" \nP/N Philips {} Have {} in stock its under the limit {}. \nPlease order... The Safe Stock is - {} \nOrder From : {} \nContact Name : {} \nPhone Number : {} \nEmail : {}'.format(item_created.data['name'], item_created.data['pn_philips'], item_created.data['quantity'], item_created.data['limit'], item_created.data['limit'],supplier_name,supplier_contact_name,supplier_contact_phone,supplier_email)
                         from_email = 'philipsmaintenance86@gmail.com'
                         recipient_list = ['yarinpariente10@gmail.com']  # Update with your recipient list
                         send_email_async(subject, message, from_email, recipient_list)
+                        
                 return JsonResponse(item_created.data, safe=False, status=201)
             return JsonResponse(ser.errors, status=400 , safe=False)
         
         elif request.method == 'DELETE':
             machine = item.machine
             item.delete()
-            machine.counter_item_machine -= 1
-            machine.save()
+            # Dont have Negative items that include to this machine
+            if(machine.counter_item_machine > 0):
+                machine.counter_item_machine -= 1
+                machine.save()
             return JsonResponse(f'The resource with id {id} deleted',safe=False, status=200)
 
     except Exception as e:
@@ -721,6 +782,10 @@ def login_user(request):
             if user is not None:
                 # Use Django's built-in login function to log in the user
                 login(request, user)
+                
+                # if any user login start from 1/1 of ecery now year, its reast all value and clac the current value of every month
+                if datetime.now().month == 1 and datetime.now().day >= 1 and not MonthlyCost.objects.filter(month=1).exists():
+                    MonthlyCost.reset_monthly_revenues()
 
                 # Generate the access and refresh tokens
                 token_pair = TokenObtainPairSerializer().get_token(user)
@@ -821,7 +886,7 @@ class TokenExpiresView(APIView):
 
             return JsonResponse({'expires_in': remaining_time_str})
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({'error': str(e)}, status=500)
         
  
 @api_view(['POST'])
@@ -847,4 +912,71 @@ def decode_token(request):
             raise Exception('Access token not found')
     except Exception as e:
         print(str(e))  # Print the error message to help with debugging
-        return JsonResponse({'error': str(e)}, safe=False, status=401)
+        return JsonResponse({'error': str(e)}, safe=False, status=500)
+    
+    
+    
+# Get all Month Calc
+@api_view(['GET'])
+def getMonthCost(request):
+    try:
+        if request.method == 'GET':
+            months = MonthlyCost.objects.all()
+            serializer = MonthlyCostSerializer(months, many=True)
+            return JsonResponse(serializer.data, safe=False, status=200)
+
+    except Exception as e:
+        print(str(e))  # Print the error message for debugging purposes
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@api_view(['POST'])
+def getHistoryRecordsByDate(request):
+    try:
+        if request.method == 'POST':
+            
+            # records = History.objects.all()
+            # ser = ItemSerializer(records, many=True)
+            # return JsonResponse(ser.data,safe=False, status=200)
+            date_start = request.data.get('date_start')
+            date_end = request.data.get('date_end')
+
+            if date_start is None or date_end is None:
+                return JsonResponse({'error': 'Please provide both date_start and date_end parameters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Convert date strings to datetime objects
+            date_start = timezone.make_aware(datetime.strptime(date_start, '%Y-%m-%d'))
+            date_end = timezone.make_aware(datetime.strptime(date_end, '%Y-%m-%d'))
+
+
+            # Retrieve history records between the specified dates
+            history = History.objects.filter(creation_date__range=[date_start, date_end])
+
+            # Serialize history records
+            serialized_data = []
+            for record in history:
+                creation_date_formatted = record.creation_date.strftime('%Y-%m-%d %H:%M:%S')
+                
+                serializerUser = UserSerializer(record.user) if record.user else None
+                serializerItem = ItemSerializer(record.item) if record.item else None
+                
+                serialized_data.append({
+                    'counter': len(serialized_data),
+                    'amount': record.amount,
+                    'user': serializerUser.data if serializerUser else None,
+                    'item': serializerItem.data if serializerItem else None,
+                    'action': record.action,
+                    'creation_date': creation_date_formatted
+                })
+
+            return JsonResponse(serialized_data, safe=False, status=status.HTTP_200_OK)
+
+
+    except Exception as e:
+        print(str(e))  # Print the error message for debugging purposes
+        return JsonResponse({'error': str(e)}, safe=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+    

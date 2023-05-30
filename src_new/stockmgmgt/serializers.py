@@ -3,10 +3,14 @@ from collections import OrderedDict
 from uuid import UUID
 from django.contrib.auth.forms import UserCreationForm
 import uuid
-from .models import Item , Category , Location  , Supplier , History , Machine , Room
+from .models import Item , Category , Location  , Supplier , History , Machine , Room , MonthlyCost
 from stockmgmgt.models import User
 
 
+class MonthlyCostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyCost
+        fields = '__all__'
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:

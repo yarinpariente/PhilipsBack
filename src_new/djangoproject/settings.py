@@ -13,7 +13,17 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 from django.conf import settings
+# import os
+# from celery import Celery
 
+
+# # Set the default Django settings module for the 'celery' program.
+# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'stockmgmgt .settings')
+
+# app = Celery('stockmgmgt')
+
+# # Load task modules from all registered Django app configs.
+# app.autodiscover_tasks()
 
 
  
@@ -30,7 +40,8 @@ SECRET_KEY = 'django-insecure-7mwxvq3i1p(4ltjos_ql4bti+$_okmia)6f3=lcz$0eo0p+$*2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-
+USE_TZ = True
+TIME_ZONE = 'Asia/Jerusalem'
 
 APPEND_SLASH = False
 
