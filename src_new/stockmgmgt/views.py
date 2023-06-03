@@ -331,7 +331,7 @@ def UsersView(request):
             return JsonResponse(ser.data, safe=False, status=200)
         
         elif request.method == 'POST':  # create a new user
-            User = get_user_model()
+            # User = get_user_model()
             ser = UserSerializer(data=request.data)
             if ser.is_valid():
                 id_number = ser.validated_data['id_number']
@@ -372,7 +372,6 @@ def UserView(request, id):
     try:
         try:
             user = User.objects.get(pk=id)
-            print(f"User = {user}")
         except User.DoesNotExist:
             return JsonResponse(f'The resource with id {id} does not exist', safe=False, status=404)
         
@@ -778,14 +777,16 @@ def login_user(request):
             
             # Use Django's built-in authentication system to check if the username and password are correct
             user = authenticate(request, username=username, password=password)
-
-            if user is not None:
+            print(user)
+ 
+            if user is not None and user.is_staff :
+                
                 # Use Django's built-in login function to log in the user
                 login(request, user)
                 
                 # if any user login start from 1/1 of ecery now year, its reast all value and clac the current value of every month
                 if datetime.now().month == 1 and datetime.now().day >= 1 and not MonthlyCost.objects.filter(month=1).exists():
-                    MonthlyCost.reset_monthly_revenues()
+                   MonthlyCost.reset_monthly_revenues()
 
                 # Generate the access and refresh tokens
                 token_pair = TokenObtainPairSerializer().get_token(user)
@@ -808,15 +809,14 @@ def login_user(request):
                         # add any other user data you want to include in the response
                     }
                 }
-                
                 return JsonResponse(response_data, status=200)
             else:
-                raise Exception('Invalid credentials')
+                return JsonResponse({'error': 'Invalid request method.'}, status=403)
         else:
             return JsonResponse({'error': 'Invalid request method.'}, status=405)
     except Exception as e:
         print(str(e))  # print the error message to help with debugging
-        return JsonResponse({'error': str(e)}, safe=False, status=401)
+        return JsonResponse({'error': str(e)}, safe=False, status=408)
 
 
 @api_view(["POST"])

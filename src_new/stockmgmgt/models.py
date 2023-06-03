@@ -34,11 +34,11 @@ class User(AbstractUser):
     
 
     def __str__(self):
-        return f'Name: {self.name} {self.lastname}, Email: {self.email}, Job: {self.job} worker number : {self.worker_number}'
+        return f'Name: {self.name} {self.lastname}, Email: {self.email}, Job: {self.job} worker number : {self.worker_number} is_staff : {self.is_staff}'
 #
 class Category(models.Model):
     category_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
-    name = models.CharField(unique = True ,max_length=20, null=False)
+    name = models.CharField(unique = True ,max_length=40, null=False)
     description = models.CharField(max_length=50)
     
     def __str__(self):
@@ -48,7 +48,7 @@ class Category(models.Model):
 class Supplier(models.Model):
     supplier_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
     name = models.CharField(max_length=50, null=True , unique=True )
-    contact_name = models.CharField(default = "" ,max_length=20, null=False) 
+    contact_name = models.CharField(default = "" ,max_length=40, null=False) 
     contact_phone = models.CharField(max_length=15 , null=False )
     email = models.EmailField(unique=True ,null=False)
     address = models.CharField(default = "",max_length=50, null=False) 
