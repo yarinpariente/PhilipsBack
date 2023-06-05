@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 from django.conf import settings
+import pytz
+
 # import os
 # from celery import Celery
 
@@ -40,8 +42,14 @@ SECRET_KEY = 'django-insecure-7mwxvq3i1p(4ltjos_ql4bti+$_okmia)6f3=lcz$0eo0p+$*2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-USE_TZ = True
+
+# Set the time zone to Jerusalem
 TIME_ZONE = 'Asia/Jerusalem'
+
+# Enable time zone support
+# USE_TZ = True
+
+
 
 APPEND_SLASH = False
 
@@ -160,12 +168,9 @@ AUTH_USER_MODEL = 'stockmgmgt.User'
 # ]
 
 LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
 
 USE_I18N = True
-
-USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)

@@ -36,6 +36,9 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status
+import pytz
+from datetime import datetime
+
 
 # from django.utils.dateformat import format_datetime
 
@@ -96,7 +99,7 @@ def ItemsView(request):
                         user=request.user,  # Assuming you have access to the authenticated user
                         item=itemToConnect,
                         action='Create',
-                        creation_date=datetime.now()
+                        creation_date=timezone.now()
                     )
                     
                     history.save()
@@ -191,14 +194,21 @@ def ItemView(request, id):
 
                     # import pdb; pdb.set_trace()  
                     # If We add to specific item quantity , and else if we take from stock 
+                    
+                    # timezone = pytz.timezone('Asia/Jerusalem')
+                    # current_time = datetime.now().astimezone(timezone)
+                    # print(current_time)
+                    print("Time Zone" ,timezone.now())
                     if(item_created.data['quantity'] > item.last_quantity):
                         history = History(
                             amount=item_created.data['quantity'] - item.last_quantity ,
                             user=request.user,  # Assuming you have access to the authenticated user
                             item=itemToConnect,
                             action='Add',
-                            creation_date=datetime.now()
+                            # creation_date=datetime.now()
+                            creation_date=timezone.now()
                         )
+                        print("Before Save " ,history.creation_date)
                         history.save()
                     else :
                         history = History(
@@ -206,20 +216,27 @@ def ItemView(request, id):
                             user=request.user,  # Assuming you have access to the authenticated user
                             item=itemToConnect,
                             action='Sub',
-                            creation_date=datetime.now()
+                            creation_date=timezone.now()
+                            # creation_date=timezone.localtime(timezone.now())
                         )
                         history.save()
                     
                     # Save the changes 
+                    
+                    print("After Save " ,history.creation_date)
                     item.last_quantity = item_created.data['quantity']
                     item.save()
+                    
+                    admin_users = User.objects.filter(is_staff=True, is_superuser=True) # Send email for all users that them active and admin
+                    admin_emails = [user.email for user in admin_users] # Move on them email
+
                     
                     ## We need to send email 
                     if item_created.data['quantity'] <= item_created.data['limit']:
                         subject = 'Item {} is under the Limit'.format(item_created.data['name'])
                         message = 'The item "{}" \nP/N Philips {} Have {} in stock its under the limit {}. \nPlease order... The Safe Stock is - {} \nOrder From : {} \nContact Name : {} \nPhone Number : {} \nEmail : {}'.format(item_created.data['name'], item_created.data['pn_philips'], item_created.data['quantity'], item_created.data['limit'], item_created.data['limit'],supplier_name,supplier_contact_name,supplier_contact_phone,supplier_email)
                         from_email = 'philipsmaintenance86@gmail.com'
-                        recipient_list = ['yarinpariente10@gmail.com']  # Update with your recipient list
+                        recipient_list = admin_emails  # Send email for all users that them
                         send_email_async(subject, message, from_email, recipient_list)
                         
                 return JsonResponse(item_created.data, safe=False, status=201)
@@ -525,7 +542,7 @@ def MachinesViews(request):
             ser = MachineSerializer(machines, many=True)
             return JsonResponse(ser.data,safe=False, status=200)
         
-        if request.method == 'POST':  # create a new item           
+        if request.method == 'POST':  # create a new item          
             machine = Machine()
             ser = MachineSerializer(machine, data=request.data)
             if ser.is_valid():
@@ -544,6 +561,35 @@ def MachinesViews(request):
                 ser.save()
             return JsonResponse(ser.data, safe=False, status=201)
         return JsonResponse(ser.errors, status=400)
+        # if request.method == 'POST':
+        #     for i in range(300):
+        #         machine = Machine()
+        #         machine_name = 'Machine# ' + str(i)
+        #         machine_manufacturer = 'Manufacturer ' + str(i)
+        #         ser = MachineSerializer(machine, data=request.data)
+        #         if ser.is_valid():
+        #             if machine_name.lower() == 'general':
+        #                 serial_number = 99000
+        #             else:
+        #                 last_machine = Machine.objects.order_by('-machine_id').first()
+        #                 if last_machine is None:
+        #                     serial_number = 10000
+        #                 else:
+        #                     serial_number = int(last_machine.machine_serial_number) + 1000
+        #                     # Skip to 100000 if serial_number exceeds it
+        #                     if serial_number == 100000:
+        #                         serial_number += 1000
+        #                 # generate unique serial number
+        #                 while Machine.objects.filter(machine_serial_number=serial_number).exists():
+        #                     serial_number += 1000
+        #             ser.validated_data['machine_serial_number'] = serial_number
+        #             ser.validated_data['name'] = machine_name
+        #             ser.validated_data['manufacturer'] = machine_manufacturer
+        #             ser.save()
+
+        #     return JsonResponse(ser.data, safe=False, status=201)
+
+        # return JsonResponse(ser.errors, status=400)
         
     except Exception as e:
         return JsonResponse(f'{e}', safe=False, status=500)
@@ -567,8 +613,9 @@ def MachineView(request, id):
             # Update the machine with the given id
             ser = MachineSerializer(instance=machine, data=request.data, partial=True)
             if ser.is_valid():
-                ser.save()
-                return JsonResponse(f'The resource with id {id} updated', safe=False, status=200)
+                updated_machine = ser.save()
+                updated_ser = MachineSerializer(instance=updated_machine)
+                return JsonResponse(updated_ser.data, safe=False, status=200)
             return JsonResponse(ser.errors, status=400)
         
         elif request.method == 'DELETE':
@@ -944,8 +991,8 @@ def getHistoryRecordsByDate(request):
                 return JsonResponse({'error': 'Please provide both date_start and date_end parameters.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Convert date strings to datetime objects
-            date_start = timezone.make_aware(datetime.strptime(date_start, '%Y-%m-%d'))
-            date_end = timezone.make_aware(datetime.strptime(date_end, '%Y-%m-%d'))
+            date_start = datetime.strptime(date_start, '%Y-%m-%d')
+            date_end = datetime.strptime(date_end, '%Y-%m-%d')
 
 
             # Retrieve history records between the specified dates

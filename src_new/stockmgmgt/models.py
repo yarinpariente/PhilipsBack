@@ -6,6 +6,15 @@ from django.contrib.auth.models import AbstractUser , PermissionsMixin , BaseUse
 from django.forms import ValidationError
 from django.core.validators import RegexValidator
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
+from datetime import timedelta
+
+
+# from django.utils import timezone
+import pytz
+
+
+
 
 # from celery import Celery
 
@@ -147,19 +156,20 @@ class Item(models.Model):
         return f' Name : {self.name} , Kit Number {self.kit_number}'
 
 #   
+
 class History(models.Model):
     amount = models.CharField(max_length=100, null=True) #  Item quantity that change  
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     action = models.CharField(max_length=20, null = False)
-    creation_date = models.DateTimeField(default=datetime.now)
-
+    # creation_date = models.DateTimeField(default=lambda: timezone.localtime(timezone.now()) + timedelta(hours=3))
+    creation_date = models.DateTimeField(default=timezone.now)
     
     def __str__(self):
         if self.item:
-            return f"{self.item.pn_philips} - {self.item.name} - {self.item.category.name} - {self.user.name} {self.user.lastname} - {self.action} - {self.amount}"
+            return f"{self.item.pn_philips} - {self.item.name} - {self.item.category.name} - {self.user.name} {self.user.lastname} - {self.action} - {self.amount} ----  {self.creation_date}"
         else:
-            return f"None - None - None - {self.user.username} - {self.action} - {self.amount}"
+            return f"None - None - None - {self.item} - {self.action} - {self.amount}"
     
     
 class MonthlyCost(models.Model):
