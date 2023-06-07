@@ -1,4 +1,5 @@
 import json
+import time
 from functools import reduce
 from django.db.models import F
 from math import ceil
@@ -119,7 +120,7 @@ def ItemsView(request):
                     quantity_price = item_created.quantity * item_created.price
                     monthly_revenue.value = F('value') + quantity_price
                     monthly_revenue.save()
-
+                    # time.sleep(5)
                     item_serializer = ItemSerializer(item_created)
                     return JsonResponse(item_serializer.data, safe=False, status=201)
                 except Exception as e:
@@ -144,6 +145,8 @@ def ItemView(request, id):
             return JsonResponse(serializer.data,safe=False,status=200)
 
         elif request.method == 'PUT':
+            # time.sleep(5)
+
             if 'category' in request.data:
                 category_data = request.data.pop('category')
                 category, created = Category.objects.get_or_create(name=category_data['name'])
@@ -180,6 +183,7 @@ def ItemView(request, id):
             ser = ItemPostSerializer(instance = item , data=request.data , partial = True)
             
             if ser.is_valid():
+                # time.sleep(5)
                 item_created = ItemSerializer(ser.save())
  
                 supplier_name = item_created.data['supplier']['name']
@@ -237,6 +241,7 @@ def ItemView(request, id):
                         message = 'The item "{}" \nP/N Philips {} Have {} in stock its under the limit {}. \nPlease order... The Safe Stock is - {} \nOrder From : {} \nContact Name : {} \nPhone Number : {} \nEmail : {}'.format(item_created.data['name'], item_created.data['pn_philips'], item_created.data['quantity'], item_created.data['limit'], item_created.data['limit'],supplier_name,supplier_contact_name,supplier_contact_phone,supplier_email)
                         from_email = 'philipsmaintenance86@gmail.com'
                         recipient_list = admin_emails  # Send email for all users that them
+                        print("Done")
                         send_email_async(subject, message, from_email, recipient_list)
                         
                 return JsonResponse(item_created.data, safe=False, status=201)
@@ -542,49 +547,82 @@ def MachinesViews(request):
             ser = MachineSerializer(machines, many=True)
             return JsonResponse(ser.data,safe=False, status=200)
         
-        if request.method == 'POST':  # create a new item          
+        if request.method == 'POST':
+            # Create a new instance of the Machine model
             machine = Machine()
+            # Create a serializer instance with the machine object and request data
             ser = MachineSerializer(machine, data=request.data)
+            
+            # Check if the serializer is valid
             if ser.is_valid():
+                # Check if the machine name is 'general'
                 if request.data.get('name', '').lower() == 'general':
-                    serial_number = 99000
+                    # Find the last general machine based on machine_id in descending order
+                    last_general_machine = Machine.objects.filter(name__iexact='general').order_by('-machine_id').first()
+                    if last_general_machine is None:
+                        # If no previous general machine exists, set the serial number to 99000
+                        serial_number = 99000
+                    else:
+                        # Get the serial number of the last general machine
+                        serial_number = int(last_general_machine.machine_serial_number)
                 else:
+                    # Find the last machine based on machine_id in descending order
                     last_machine = Machine.objects.order_by('-machine_id').first()
                     if last_machine is None:
+                        # If no previous machine exists, set the serial number to 10000
                         serial_number = 10000
                     else:
+                        # Get the serial number of the last machine and increment it by 1000
                         serial_number = int(last_machine.machine_serial_number) + 1000
-                    # generate unique serial number
-                    while Machine.objects.filter(machine_serial_number=serial_number).exists():
-                        serial_number += 1000
+
+                    if serial_number >= 100000:
+                        # If the serial number exceeds 100000, reset it to 10000
+                        serial_number = 10000
+
+                # Generate a unique serial number
+                while Machine.objects.filter(machine_serial_number=serial_number).exists():
+                    serial_number += 1000
+
+                # Set the validated data of the serializer with the generated serial number
                 ser.validated_data['machine_serial_number'] = serial_number
+                # Save the serializer data to create a new machine object
                 ser.save()
-            return JsonResponse(ser.data, safe=False, status=201)
-        return JsonResponse(ser.errors, status=400)
+                
+                # Return the serialized data with status 201 (created)
+                return JsonResponse(ser.data, safe=False, status=201)
+            
+            # If the serializer is not valid, return the errors with status 400 (bad request)
+            return JsonResponse(ser.errors, status=400)
+        
         # if request.method == 'POST':
-        #     for i in range(300):
+        #     for i in range(105):
         #         machine = Machine()
-        #         machine_name = 'Machine# ' + str(i)
-        #         machine_manufacturer = 'Manufacturer ' + str(i)
         #         ser = MachineSerializer(machine, data=request.data)
+
         #         if ser.is_valid():
-        #             if machine_name.lower() == 'general':
-        #                 serial_number = 99000
+        #             if request.data.get('name', '').lower() == 'general':
+        #                 last_general_machine = Machine.objects.filter(name__iexact='general').order_by('-machine_id').first()
+        #                 if last_general_machine is None:
+        #                     serial_number = 99000
+        #                 else:
+        #                     serial_number = int(last_general_machine.machine_serial_number)
         #             else:
         #                 last_machine = Machine.objects.order_by('-machine_id').first()
         #                 if last_machine is None:
         #                     serial_number = 10000
         #                 else:
         #                     serial_number = int(last_machine.machine_serial_number) + 1000
-        #                     # Skip to 100000 if serial_number exceeds it
-        #                     if serial_number == 100000:
-        #                         serial_number += 1000
-        #                 # generate unique serial number
-        #                 while Machine.objects.filter(machine_serial_number=serial_number).exists():
-        #                     serial_number += 1000
+
+        #                 if serial_number >= 100000:
+        #                     serial_number = 10000
+
+        #             # Generate unique serial number
+        #             while Machine.objects.filter(machine_serial_number=serial_number).exists():
+        #                 serial_number += 1000
+
         #             ser.validated_data['machine_serial_number'] = serial_number
-        #             ser.validated_data['name'] = machine_name
-        #             ser.validated_data['manufacturer'] = machine_manufacturer
+        #             ser.validated_data['name'] = f'Machine {i + 1}'
+        #             ser.validated_data['manufacturer'] = f'Manufacturer {i + 1}'
         #             ser.save()
 
         #     return JsonResponse(ser.data, safe=False, status=201)
