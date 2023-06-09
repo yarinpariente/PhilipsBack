@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Item, User, Location, Supplier, Category , History , Room , Machine,MonthlyCost,History
+from .models import Item, User, Location, Supplier, Category  , Room , Machine,MonthlyCost,History
 
 # Register your models here.
 

@@ -8,6 +8,8 @@ from django.core.validators import RegexValidator
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from datetime import timedelta
+from django.db import utils
+
 
 
 # from django.utils import timezone
@@ -15,19 +17,12 @@ import pytz
 
 
 
-
-# from celery import Celery
-
-
-
-# id_number , username , email , worker_number
-
-
 # Create your models here.
 class User(AbstractUser):
-    id_number = models.CharField(primary_key=True , max_length=50, null=False)
-    username = models.CharField(max_length=30, null=False , unique=True)
-    password = models.CharField(max_length=100, null=False )
+    user_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
+    id_number = models.CharField(unique=True,max_length=50, null=False)
+    username = models.CharField(max_length=30, null=False, unique=True)
+    password = models.CharField(max_length=100, null=False)
     name = models.CharField(max_length=50, null=False)
     lastname = models.CharField(max_length=50, null=False)
     email = models.EmailField(unique=True, null=False)
@@ -38,6 +33,7 @@ class User(AbstractUser):
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=True , null=True)
     access_token = models.CharField(max_length=500 , null = True , blank=True)
+
     
     USERNAME_FIELD='username'
     
@@ -162,7 +158,6 @@ class History(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     action = models.CharField(max_length=20, null = False)
-    # creation_date = models.DateTimeField(default=lambda: timezone.localtime(timezone.now()) + timedelta(hours=3))
     creation_date = models.DateTimeField(default=timezone.now)
     
     def __str__(self):
@@ -170,7 +165,7 @@ class History(models.Model):
             return f"{self.item.pn_philips} - {self.item.name} - {self.item.category.name} - {self.user.name} {self.user.lastname} - {self.action} - {self.amount} ----  {self.creation_date}"
         else:
             return f"None - None - None - {self.item} - {self.action} - {self.amount}"
-    
+          
     
 class MonthlyCost(models.Model):
     month = models.IntegerField(primary_key=True,unique=True, null=False)

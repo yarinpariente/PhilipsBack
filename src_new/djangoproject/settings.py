@@ -132,7 +132,7 @@ WSGI_APPLICATION = 'djangoproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'NewDb5.sqlite3',
+        'NAME': BASE_DIR / 'NewDb8.sqlite3',
     }
 }
 
@@ -206,7 +206,8 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
     "SIGNING_KEY": settings.SECRET_KEY,
     
-    'USER_ID_FIELD': 'id_number',
+    'USER_ID_FIELD': 'user_id',
+    
 }
 
 AUTHENTICATION_BACKENDS = (

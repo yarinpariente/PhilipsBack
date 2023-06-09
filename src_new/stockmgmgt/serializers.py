@@ -3,7 +3,7 @@ from collections import OrderedDict
 from uuid import UUID
 from django.contrib.auth.forms import UserCreationForm
 import uuid
-from .models import Item , Category , Location  , Supplier , History , Machine , Room , MonthlyCost
+from .models import Item , Category , Location  , Supplier  , Machine , Room , MonthlyCost , History
 from stockmgmgt.models import User
 
 
@@ -33,11 +33,6 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = '__all__'
 
-class HistorySerializer(serializers.ModelSerializer):
-    user = UserSerializer()   # Forgin key connect 
-    class Meta:
-        model = History
-        fields = '__all__'
   
 class RoomSerializer(serializers.ModelSerializer):
     class Meta:
@@ -63,6 +58,13 @@ class ItemPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
         fields = '__all__'        
+        
+        
+class HistorySerializer(serializers.ModelSerializer):
+    user = UserSerializer()   # Forgin key connect 
+    class Meta:
+        model = History
+        fields = '__all__'
         
 class CustomUserCreationForm(UserCreationForm):
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})

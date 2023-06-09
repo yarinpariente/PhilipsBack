@@ -62,6 +62,7 @@ def ItemsView(request):
             items = Item.objects.all()
             ser = ItemSerializer(items, many=True)
             return JsonResponse(ser.data,safe=False, status=200)
+        
         elif request.method == 'POST':  # create a new item
             if 'category' in request.data:
                 category_data = request.data.pop('category')
@@ -90,19 +91,23 @@ def ItemsView(request):
             ser = ItemPostSerializer(data=request.data)
             if ser.is_valid():
                 try:
+                    # import pdb; pdb.set_trace()
                     item_created = ser.save()
 
-                    # Add history record
-                    itemToConnect = get_object_or_404(Item, pk=request.data['pn_philips'])
+                    # # Assuming request.data['pn_philips'] contains the primary key of the Item
+                    item_to_connect = get_object_or_404(Item, pk=request.data['pn_philips'])
+                    item_to_connect = Item.objects.get(pk=request.data['pn_philips'])
+                    user = request.user
 
+                    # Creating a new History instance and saving it
                     history = History(
                         amount=item_created.quantity,
-                        user=request.user,  # Assuming you have access to the authenticated user
-                        item=itemToConnect,
+                        user=user,
+                        item=item_to_connect,
                         action='Create',
                         creation_date=timezone.now()
                     )
-                    
+                    print(history.amount)
                     history.save()
 
 
@@ -111,7 +116,7 @@ def ItemsView(request):
                         machine.counter_item_for_pn += 1
                         machine.save()
 
-                    # Calculate the current month and year
+                    # # Calculate the current month and year
                     current_month = datetime.now().month
                     current_year = datetime.now().year
 
@@ -120,7 +125,6 @@ def ItemsView(request):
                     quantity_price = item_created.quantity * item_created.price
                     monthly_revenue.value = F('value') + quantity_price
                     monthly_revenue.save()
-                    # time.sleep(5)
                     item_serializer = ItemSerializer(item_created)
                     return JsonResponse(item_serializer.data, safe=False, status=201)
                 except Exception as e:
@@ -270,6 +274,7 @@ def CategoriesView(request):
          ser = CategorySerializer(category, many=True)
          return JsonResponse(ser.data,safe=False, status=200)
       elif request.method == 'POST':  # create a new item
+        #   time.sleep(5)
           ser = CategorySerializer(data=request.data) 
           if ser.is_valid():
               ser.save()
@@ -412,7 +417,7 @@ def UserView(request, id):
         #         ser.save()
         #         return JsonResponse(ser.data, safe=False, status=200)
         #     return JsonResponse(ser.errors, status=400)
-        if request.method == 'PUT':
+        elif request.method == 'PUT':
             # Check if password is hashed if true dont change 
             if request.data.get('password').startswith('pbkdf2_sha256'):
                 request.data.pop('password', None)
@@ -548,6 +553,7 @@ def MachinesViews(request):
             return JsonResponse(ser.data,safe=False, status=200)
         
         if request.method == 'POST':
+            # time.sleep(5)
             # Create a new instance of the Machine model
             machine = Machine()
             # Create a serializer instance with the machine object and request data
@@ -956,7 +962,7 @@ class TokenExpiresView(APIView):
     def post(self, request, *args, **kwargs):
         try:
             refresh_token = request.data.get("refresh_token")
-            token = RefreshToken(refresh_token)
+            token = RefreshToken(refresh_token) 
             current_time = timezone.now()
 
             # calculate the remaining time until the token expires
@@ -986,7 +992,7 @@ def decode_token(request):
             serializer = UserSerializer(user)
             return JsonResponse({
                 'access_token': access_token,
-                'id': user.id_number,
+                'id': user.user_id,
                 'super_user': user.is_superuser,
                 'username': user.username,
                 'email': user.email,
@@ -1018,7 +1024,7 @@ def getMonthCost(request):
 def getHistoryRecordsByDate(request):
     try:
         if request.method == 'POST':
-            
+            time.sleep(5)
             # records = History.objects.all()
             # ser = ItemSerializer(records, many=True)
             # return JsonResponse(ser.data,safe=False, status=200)
