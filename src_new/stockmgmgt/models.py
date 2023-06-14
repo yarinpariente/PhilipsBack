@@ -165,26 +165,46 @@ class History(models.Model):
             return f"{self.item.pn_philips} - {self.item.name} - {self.item.category.name} - {self.user.name} {self.user.lastname} - {self.action} - {self.amount} ----  {self.creation_date}"
         else:
             return f"None - None - None - {self.item} - {self.action} - {self.amount}"
-          
+      
+class LatestReset(models.Model):
+    year = models.IntegerField()
+    done = models.BooleanField(default=False)
+        
     
 class MonthlyCost(models.Model):
-    month = models.IntegerField(primary_key=True,unique=True, null=False)
+    cost_id = models.UUIDField(primary_key=True ,default = uuid.uuid4, null=False , editable=False , unique=True)
+    month = models.IntegerField(null=False)
     year = models.IntegerField(default=datetime.now().year)  # Add year field
     value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    # @shared_task
+    
+    @staticmethod
     def reset_monthly_revenues():
-        # Check if the reset date is today (January 1st)
-        if datetime.now().month == 1 and datetime.now().day == 1:
-            current_year = datetime.now().year
-            previous_year = current_year - 1
+        current_year = datetime.now().year
 
-            # Reset the MonthlyCost values for the previous year
-            MonthlyCost.objects.filter(year=previous_year).update(value=0)
+        try:
+            # Try to get the latest reset record for the current year
+            latest_reset = LatestReset.objects.get(year=current_year)
+            if latest_reset.done:
+                # The reset has already been done for the current year, so return without doing anything
+                return
+        except LatestReset.DoesNotExist:
+            # There's no reset record for the current year, so create one
+            latest_reset = LatestReset.objects.create(year=current_year)
 
-            # Create new MonthlyCost instances for the current year
-            for month in range(1, 13):
-                MonthlyCost.objects.update_or_create(month=month, year=current_year, defaults={'value': 0})
+        # Get the MonthlyCost instances for the previous year
+        previous_year = current_year - 1
+        previous_year_costs = MonthlyCost.objects.filter(year=previous_year).order_by('-month')[:12]
+
+        # Update the MonthlyCost instances for the current year with the values from the previous year
+        for cost in previous_year_costs:
+            current_cost, created = MonthlyCost.objects.get_or_create(month=cost.month, year=current_year)
+            current_cost.value = 0  # Set the value to 0
+            current_cost.save()
+
+        # Mark the reset as done for the current year
+        latest_reset.done = True
+        latest_reset.save()
+
 
 
     def __str__(self):

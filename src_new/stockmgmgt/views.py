@@ -1,5 +1,6 @@
 import json
 import time
+
 from functools import reduce
 from django.db.models import F
 from math import ceil
@@ -59,6 +60,7 @@ def send_email_async(subject, message, from_email, recipient_list):
 def ItemsView(request):
     try:
         if request.method == 'GET': # list all items
+            # time.sleep(5)
             items = Item.objects.all()
             ser = ItemSerializer(items, many=True)
             return JsonResponse(ser.data,safe=False, status=200)
@@ -93,7 +95,7 @@ def ItemsView(request):
                 try:
                     # import pdb; pdb.set_trace()
                     item_created = ser.save()
-
+                    
                     # # Assuming request.data['pn_philips'] contains the primary key of the Item
                     item_to_connect = get_object_or_404(Item, pk=request.data['pn_philips'])
                     item_to_connect = Item.objects.get(pk=request.data['pn_philips'])
@@ -107,7 +109,6 @@ def ItemsView(request):
                         action='Create',
                         creation_date=timezone.now()
                     )
-                    print(history.amount)
                     history.save()
 
 
@@ -311,10 +312,11 @@ def CategoryView(request, id):
 # @permission_classes([IsAuthenticated])
 def LocationsView(request):
     try:
-      if request.method == 'GET': # list all items
-         location = Location.objects.all()
-         ser = LocationSerializer(location, many=True)
-         return JsonResponse(ser.data,safe=False, status=200)
+      if request.method == 'GET': # list all Locations
+        # time.sleep(5)
+        location = Location.objects.all()
+        ser = LocationSerializer(location, many=True)
+        return JsonResponse(ser.data,safe=False, status=200)
       elif request.method == 'POST':
             ser = LocationSerializer(data=request.data)
             if ser.is_valid():
@@ -419,7 +421,7 @@ def UserView(request, id):
         #     return JsonResponse(ser.errors, status=400)
         elif request.method == 'PUT':
             # Check if password is hashed if true dont change 
-            if request.data.get('password').startswith('pbkdf2_sha256'):
+            if request.data.get('password').startswith('pbkdf2_sha256') or request.data.get('password') == "":
                 request.data.pop('password', None)
             else:
                 # its numbers and letters password and need change the password
@@ -875,9 +877,13 @@ def login_user(request):
                 # Use Django's built-in login function to log in the user
                 login(request, user)
                 
-                # if any user login start from 1/1 of ecery now year, its reast all value and clac the current value of every month
-                if datetime.now().month == 1 and datetime.now().day >= 1 and not MonthlyCost.objects.filter(month=1).exists():
-                   MonthlyCost.reset_monthly_revenues()
+                if datetime.now().month == 1 and datetime.now().day >= 1:
+                    try:
+                        # if any user login start from 1/1 of every now year, its reset all value and calc the current value of every month
+                        print("Restor")
+                        MonthlyCost.reset_monthly_revenues()
+                    except Exception as e:
+                        print(f"Failed to reset monthly revenues: {str(e)}")
 
                 # Generate the access and refresh tokens
                 token_pair = TokenObtainPairSerializer().get_token(user)
@@ -907,7 +913,7 @@ def login_user(request):
             return JsonResponse({'error': 'Invalid request method.'}, status=405)
     except Exception as e:
         print(str(e))  # print the error message to help with debugging
-        return JsonResponse({'error': str(e)}, safe=False, status=408)
+        return JsonResponse({'error': str(e)}, safe=False, status=500)
 
 
 @api_view(["POST"])
@@ -1006,13 +1012,13 @@ def decode_token(request):
         return JsonResponse({'error': str(e)}, safe=False, status=500)
     
     
-    
-# Get all Month Calc
+
 @api_view(['GET'])
 def getMonthCost(request):
     try:
         if request.method == 'GET':
-            months = MonthlyCost.objects.all()
+            current_year = datetime.now().year
+            months = MonthlyCost.objects.filter(year=current_year)
             serializer = MonthlyCostSerializer(months, many=True)
             return JsonResponse(serializer.data, safe=False, status=200)
 
@@ -1024,7 +1030,6 @@ def getMonthCost(request):
 def getHistoryRecordsByDate(request):
     try:
         if request.method == 'POST':
-            time.sleep(5)
             # records = History.objects.all()
             # ser = ItemSerializer(records, many=True)
             # return JsonResponse(ser.data,safe=False, status=200)
