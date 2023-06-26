@@ -18,8 +18,8 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse , HttpResponseRedirect
 from django.urls import reverse
-from .models import Item , Category,User , Location  , Supplier , History , Machine , Room ,MonthlyCost
-from .serializers import ItemSerializer,CustomUserCreationForm,ItemPostSerializer , CategorySerializer,MonthlyCostSerializer , LocationSerializer , UserSerializer , SupplierSerializer , HistorySerializer , MachineSerializer , RoomSerializer
+from .models import Item , Category,User , Location  , Supplier , History , Machine , Room ,MonthlyCost ,LatestReset
+from .serializers import ItemSerializer,CustomUserCreationForm,ItemPostSerializer , CategorySerializer,MonthlyCostSerializer ,LatestResetSerializer, LocationSerializer , UserSerializer , SupplierSerializer , HistorySerializer , MachineSerializer , RoomSerializer
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -207,7 +207,6 @@ def ItemView(request, id):
                     # timezone = pytz.timezone('Asia/Jerusalem')
                     # current_time = datetime.now().astimezone(timezone)
                     # print(current_time)
-                    print("Time Zone" ,timezone.now())
                     if(item_created.data['quantity'] > item.last_quantity):
                         history = History(
                             amount=item_created.data['quantity'] - item.last_quantity ,
@@ -217,7 +216,6 @@ def ItemView(request, id):
                             # creation_date=datetime.now()
                             creation_date=timezone.now()
                         )
-                        print("Before Save " ,history.creation_date)
                         history.save()
                     else :
                         history = History(
@@ -236,7 +234,7 @@ def ItemView(request, id):
                     item.last_quantity = item_created.data['quantity']
                     item.save()
                     
-                    admin_users = User.objects.filter(is_staff=True, is_superuser=True) # Send email for all users that them active and admin
+                    admin_users = User.objects.filter(is_staff=True) # Send email for all users that them active and admin
                     admin_emails = [user.email for user in admin_users] # Move on them email
 
                     
@@ -244,7 +242,7 @@ def ItemView(request, id):
                     if item_created.data['quantity'] <= item_created.data['limit']:
                         subject = 'Item {} is under the Limit'.format(item_created.data['name'])
                         message = 'The item "{}" \nP/N Philips {} Have {} in stock its under the limit {}. \nPlease order... The Safe Stock is - {} \nOrder From : {} \nContact Name : {} \nPhone Number : {} \nEmail : {}'.format(item_created.data['name'], item_created.data['pn_philips'], item_created.data['quantity'], item_created.data['limit'], item_created.data['limit'],supplier_name,supplier_contact_name,supplier_contact_phone,supplier_email)
-                        from_email = 'philipsmaintenance86@gmail.com'
+                        from_email = 'philipsmaintenance11@gmail.com'
                         recipient_list = admin_emails  # Send email for all users that them
                         print("Done")
                         send_email_async(subject, message, from_email, recipient_list)
@@ -1018,7 +1016,8 @@ def getMonthCost(request):
     try:
         if request.method == 'GET':
             current_year = datetime.now().year
-            months = MonthlyCost.objects.filter(year=current_year)
+            months = MonthlyCost.objects.filter(year=current_year).order_by('month')  # Sort the months by 'month' field
+            months = sorted(months, key=lambda month: (month.month - 1) % 12 + 1)  # Sort the months from 1 to 12
             serializer = MonthlyCostSerializer(months, many=True)
             return JsonResponse(serializer.data, safe=False, status=200)
 
@@ -1070,6 +1069,46 @@ def getHistoryRecordsByDate(request):
     except Exception as e:
         print(str(e))  # Print the error message for debugging purposes
         return JsonResponse({'error': str(e)}, safe=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
+@api_view(['POST'])
+def getYearsForCalcData(request):
+    try:
+        if request.method == 'POST':
+            records = LatestReset.objects.all()
+            ser = LatestResetSerializer(records, many=True)
+            return JsonResponse(ser.data,safe=False, status=200)
+
+
+    except Exception as e:
+        print(str(e))  # Print the error message for debugging purposes
+        return JsonResponse({'error': str(e)}, safe=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
+    
+@api_view(['POST'])
+def getDataForEveryYear(request):
+    try:
+        # import pdb;
+        # pdb.set_trace()
+        
+        if request.method == 'POST':
+            if 'year' in request.data:
+                year = request.data.get('year')  # Get the 'year' value from the request data
+                months = MonthlyCost.objects.filter(year=year)
+                if months:
+                    months = sorted(months, key=lambda month: (month.month - 1) % 12 + 1)  # Sort the months from 1 to 12
+                    ser = MonthlyCostSerializer(months, many=True)
+                    return JsonResponse(ser.data, safe=False, status=200)
+                else:
+                    return JsonResponse({'error': 'No data available for this year'}, safe=False, status=status.HTTP_404_NOT_FOUND)
+            else:
+                return JsonResponse({'error': 'Invalid request. No year provided.'}, safe=False, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, safe=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 

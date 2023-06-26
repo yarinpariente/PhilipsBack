@@ -3,9 +3,15 @@ from collections import OrderedDict
 from uuid import UUID
 from django.contrib.auth.forms import UserCreationForm
 import uuid
-from .models import Item , Category , Location  , Supplier  , Machine , Room , MonthlyCost , History
+from .models import Item , Category , Location  , Supplier  , Machine , Room , MonthlyCost , History , LatestReset
 from stockmgmgt.models import User
 
+
+
+class LatestResetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LatestReset
+        fields = '__all__'
 
 class MonthlyCostSerializer(serializers.ModelSerializer):
     class Meta:

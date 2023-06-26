@@ -169,6 +169,9 @@ class History(models.Model):
 class LatestReset(models.Model):
     year = models.IntegerField()
     done = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.year}: ${self.done}"
         
     
 class MonthlyCost(models.Model):

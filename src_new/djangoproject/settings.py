@@ -63,11 +63,11 @@ CORS_ORIGIN_ALLOW_ALL = True
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'   # Must to be smpt
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'philipsmaintenance86@gmail.com'
-EMAIL_HOST_PASSWORD = 'aqrejquwvlkfcbqq'
+EMAIL_HOST_USER = 'philipsmaintenance11@gmail.com'
+EMAIL_HOST_PASSWORD = 'omhvnkbmwasmiblz'
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'philipsmaintenance86@gmail.com'
-SERVER_EMAIL = 'philipsmaintenance86@gmail.com'
+DEFAULT_FROM_EMAIL = 'philipsmaintenance11@gmail.com'
+SERVER_EMAIL = 'philipsmaintenance11@gmail.com'
 
 # Application definition
 
