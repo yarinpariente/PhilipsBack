@@ -1,6 +1,5 @@
 import json
 import time
-
 from functools import reduce
 from django.db.models import F
 from math import ceil
@@ -229,8 +228,6 @@ def ItemView(request, id):
                         history.save()
                     
                     # Save the changes 
-                    
-                    print("After Save " ,history.creation_date)
                     item.last_quantity = item_created.data['quantity']
                     item.save()
                     
@@ -244,7 +241,6 @@ def ItemView(request, id):
                         message = 'The item "{}" \nP/N Philips {} Have {} in stock its under the limit {}. \nPlease order... The Safe Stock is - {} \nOrder From : {} \nContact Name : {} \nPhone Number : {} \nEmail : {}'.format(item_created.data['name'], item_created.data['pn_philips'], item_created.data['quantity'], item_created.data['limit'], item_created.data['limit'],supplier_name,supplier_contact_name,supplier_contact_phone,supplier_email)
                         from_email = 'philipsmaintenance11@gmail.com'
                         recipient_list = admin_emails  # Send email for all users that them
-                        print("Done")
                         send_email_async(subject, message, from_email, recipient_list)
                         
                 return JsonResponse(item_created.data, safe=False, status=201)
@@ -1010,12 +1006,12 @@ def decode_token(request):
         return JsonResponse({'error': str(e)}, safe=False, status=500)
     
     
-
+## Here i take the last current year and show the data 
 @api_view(['GET'])
 def getMonthCost(request):
     try:
         if request.method == 'GET':
-            current_year = datetime.now().year
+            current_year = datetime.now().year+1
             months = MonthlyCost.objects.filter(year=current_year).order_by('month')  # Sort the months by 'month' field
             months = sorted(months, key=lambda month: (month.month - 1) % 12 + 1)  # Sort the months from 1 to 12
             serializer = MonthlyCostSerializer(months, many=True)
@@ -1025,6 +1021,7 @@ def getMonthCost(request):
         print(str(e))  # Print the error message for debugging purposes
         return JsonResponse({'error': str(e)}, status=500)
     
+## Here i select 2 data : date start and date end , and then i give all history records thats in this range 
 @api_view(['POST'])
 def getHistoryRecordsByDate(request):
     try:
@@ -1107,11 +1104,3 @@ def getDataForEveryYear(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, safe=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-
-
-
-
-    

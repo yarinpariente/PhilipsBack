@@ -119,6 +119,7 @@ class Item(models.Model):
     room_description = models.CharField(max_length=100, null=False) #  Item Description in location with box 
     pn_philips = models.CharField(primary_key=True,unique=True,max_length=100, null=False) # P/N philips to generate philips barcode
     pn_manufacturer = models.CharField(max_length=100, null=True,blank=True) # P/N manufacturer to generate philips barcode
+    #
     
     
     def move_item(item, new_machine):
@@ -151,7 +152,6 @@ class Item(models.Model):
     def __str__(self):
         return f' Name : {self.name} , Kit Number {self.kit_number}'
 
-#   
 
 class History(models.Model):
     amount = models.CharField(max_length=100, null=True) #  Item quantity that change  
@@ -207,8 +207,6 @@ class MonthlyCost(models.Model):
         # Mark the reset as done for the current year
         latest_reset.done = True
         latest_reset.save()
-
-
 
     def __str__(self):
         return f"{self.month} {self.year}: ${self.value}"

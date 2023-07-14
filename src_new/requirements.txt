@@ -12,3 +12,7 @@ requests
 shell
 sqlparse
 stevedore
+amqp
+djoser
+PyJWT
+celery
