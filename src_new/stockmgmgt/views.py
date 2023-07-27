@@ -68,6 +68,8 @@ def ItemsView(request):
             if 'category' in request.data:
                 category_data = request.data.pop('category')
                 category, created = Category.objects.get_or_create(name=category_data['name'])
+
+                
                 request.data['category'] = category.category_id
 
             if 'supplier' in request.data:
