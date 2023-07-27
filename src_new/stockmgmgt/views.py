@@ -1072,11 +1072,10 @@ def getHistoryRecordsByDate(request):
 def getYearsForCalcData(request):
     try:
         if request.method == 'POST':
-            records = LatestReset.objects.all()
+            current_year = datetime.now().year
+            records = LatestReset.objects.exclude(year=current_year+1)
             ser = LatestResetSerializer(records, many=True)
             return JsonResponse(ser.data,safe=False, status=200)
-
-
     except Exception as e:
         print(str(e))  # Print the error message for debugging purposes
         return JsonResponse({'error': str(e)}, safe=False, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
